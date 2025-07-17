@@ -1,0 +1,8 @@
+更新したら都度
+git add .
+git commit -m "更新内容の説明"
+git push
+
+ラズパイ側の同期時
+cd raspi_education_app  # クローンしたディレクトリ
+git pull
