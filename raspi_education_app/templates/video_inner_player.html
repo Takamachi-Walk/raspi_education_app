@@ -26,10 +26,21 @@
       font-size: 1rem;
       white-space: pre-wrap;
     }
+    #step {
+      position: absolute;
+      top: 0.5rem;
+      right: 1rem;
+      background: #333;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      z-index: 10;
+    }
   </style>
 </head>
 <body>
-  <video id="video" muted playsinline controls></video>
+  <video id="video" muted playsinline></video>
+  <div id="step">STEP --</div>
   <div id="log">ログ出力:</div>
 
   <script>
@@ -40,12 +51,31 @@
       console.log(...args);
     };
 
+    let videoFiles = [];
+    let currentIndex = 0;
+    const video = document.getElementById("video");
+    const stepDisplay = document.getElementById("step");
+
+    function updateStepDisplay() {
+      stepDisplay.textContent = `STEP ${currentIndex + 1} / ${videoFiles.length}`;
+    }
+
+    function switchVideo(index) {
+      if (!videoFiles[index]) {
+        log("❗ 指定インデックスが存在しない:", index);
+        return;
+      }
+      currentIndex = index;
+      video.src = videoFiles[currentIndex];
+      video.preload = "auto";
+      video.load();
+      updateStepDisplay();
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams(window.location.search);
       const title = params.get("title");
       log("手順書タイトル:", title);
-
-      const video = document.getElementById("video");
 
       try {
         const res = await fetch(`/get_manual?title=${encodeURIComponent(title)}`);
@@ -57,15 +87,11 @@
           throw new Error("動画ファイルが見つかりません");
         }
 
-        const firstVideo = data.files[0];
-        log("最初の動画URL:", firstVideo);
-
-        video.src = firstVideo;
-        video.preload = "auto";
-        video.load();
+        videoFiles = data.files;
+        switchVideo(0);
 
         video.addEventListener("loadeddata", () => {
-          log("✅ loadeddata イベント発火 → 再生開始を試みる");
+          log("✅ loadeddata → 再生開始を試みる");
           video.play().then(() => {
             log("▶ 再生成功");
           }).catch(err => {
@@ -77,10 +103,51 @@
           log("❌ video エラー発生:", video.error);
         });
 
+        // 動画ループ：手動方式（play()が確実）
+        video.addEventListener("ended", () => {
+          log("🔁 動画終了 → ループ再生");
+          video.currentTime = 0;
+          video.play().catch(err => log("ループ再生失敗:", err));
+        });
+
       } catch (err) {
         log("❌ 例外発生:", err);
       }
     });
+
+    // キーボード操作（A:戻る, C:進む）
+    document.addEventListener("keydown", (e) => {
+      if (!videoFiles.length || e.repeat) return;
+
+      if (e.code === "KeyA") {
+        const prev = (currentIndex - 1 + videoFiles.length) % videoFiles.length;
+        log("⬅️ 前ステップへ:", prev);
+        switchVideo(prev);
+      } else if (e.code === "KeyC") {
+        const next = (currentIndex + 1) % videoFiles.length;
+        log("➡️ 次ステップへ:", next);
+        switchVideo(next);
+      }
+    });
+
+    // GPIO連携（5回/秒チェック）
+    setInterval(async () => {
+      try {
+        const res = await fetch("/gpio_status");
+        const data = await res.json();
+        if (data.gpio17 === 1) {
+          const next = (currentIndex + 1) % videoFiles.length;
+          log("🟢 GPIO17 → 次へ:", next);
+          switchVideo(next);
+        } else if (data.gpio27 === 1) {
+          const prev = (currentIndex - 1 + videoFiles.length) % videoFiles.length;
+          log("🟡 GPIO27 → 前へ:", prev);
+          switchVideo(prev);
+        }
+      } catch (err) {
+        log("GPIO取得失敗:", err);
+      }
+    }, 200);
   </script>
 </body>
 </html>
