@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>手順書編集</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 2rem;
+      margin: 2rem 0;
+      position: relative;
+    }
+    .step {
+      width: 150px;
+      height: 100px;
+      background: #333;
+      border: 2px dashed #888;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      flex-direction: column;
+      padding: 0.5rem;
+      text-align: center;
+    }
+    .step video {
+      max-width: 100%;
+      max-height: 60px;
+    }
+    .step-label {
+      font-size: 0.9rem;
+      position: absolute;
+      top: -1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+    }
+    .step-delete-btn {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      background: none;
+      color: red;
+      border: none;
+      font-size: 1.6rem;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0;
+      z-index: 10;
+    }
+    .video-delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      background: none;
+      color: white;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0;
+      z-index: 10;
+    }
+    .arrow {
+      position: absolute;
+      font-size: 2rem;
+      color: #aaa;
+      top: 50%;
+      transform: translateY(-50%);
+      right: -1.5rem;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background: #4bc0c0;
+      border: none;
+      cursor: pointer;
+      color: black;
+      font-weight: bold;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="manualTitle">手順書編集</h1>
+  <div class="steps" id="stepContainer"></div>
+  <button onclick="addStep()">＋ ステップ追加</button>
+  <button onclick="confirmUpdate()">✅ 編集を保存</button>
+
+  <script>
+    const title = new URLSearchParams(window.location.search).get("title");
+    document.getElementById("manualTitle").textContent = `手順書編集: ${title}`;
+
+    let steps = [];
+
+    function renderSteps() {
+      const container = document.getElementById("stepContainer");
+      container.innerHTML = "";
+      steps.forEach((file, i) => {
+        const stepEl = document.createElement("div");
+        stepEl.className = "step";
+        stepEl.onclick = () => selectVideo(i);
+
+        const label = document.createElement("div");
+        label.className = "step-label";
+        label.textContent = `ステップ${i + 1}`;
+        stepEl.appendChild(label);
+
+        if (file) {
+          const video = document.createElement("video");
+          video.src = typeof file === "string" ? file : URL.createObjectURL(file);
+          video.controls = true;
+          stepEl.appendChild(video);
+
+          const delVideoBtn = document.createElement("button");
+          delVideoBtn.textContent = "×";
+          delVideoBtn.className = "video-delete-btn";
+          delVideoBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            steps[i] = null;
+            renderSteps();
+          };
+          stepEl.appendChild(delVideoBtn);
+        } else {
+          const delStepBtn = document.createElement("button");
+          delStepBtn.textContent = "×";
+          delStepBtn.className = "step-delete-btn";
+          delStepBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            steps.splice(i, 1);
+            renderSteps();
+          };
+          stepEl.appendChild(delStepBtn);
+        }
+
+        container.appendChild(stepEl);
+
+        if (i > 0) {
+          const arrow = document.createElement("div");
+          arrow.className = "arrow";
+          arrow.innerHTML = "→";
+          container.appendChild(arrow);
+        }
+      });
+    }
+
+    function selectVideo(index) {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "video/mp4";
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        steps[index] = file;
+        renderSteps();
+      };
+      input.click();
+    }
+
+    function addStep() {
+      steps.push(null);
+      renderSteps();
+    }
+
+    function confirmUpdate() {
+      if (confirm("この手順書を上書き保存します。よろしいですか？")) {
+        submitUpdate();
+      }
+    }
+
+    async function submitUpdate() {
+      const form = new FormData();
+      let valid = false;
+      let index = 1;
+
+      for (let i = 0; i < steps.length; i++) {
+        const file = steps[i];
+        if (!file) continue;
+
+        valid = true;
+        if (typeof file === "string") {
+          const res = await fetch(file);
+          const blob = await res.blob();
+          form.append("videos", blob, `${index}.mp4`);
+        } else {
+          form.append("videos", file, `${index}.mp4`);
+        }
+        index++;
+      }
+
+      if (!valid) {
+        alert("動画が1つも登録されていません。");
+        return;
+      }
+
+      const res = await fetch(`/update_manual?title=${encodeURIComponent(title)}`, {
+        method: "POST",
+        body: form
+      });
+
+      if (res.ok) {
+        alert("更新しました");
+        window.location.href = "/manual_list";
+      } else {
+        const msg = await res.text();
+        alert("更新に失敗しました\n" + msg);
+      }
+    }
+
+    fetch(`/get_manual?title=${encodeURIComponent(title)}`)
+      .then(res => res.json())
+      .then(data => {
+        steps = data.files;
+        renderSteps();
+      });
+  </script>
+</body>
+</html>

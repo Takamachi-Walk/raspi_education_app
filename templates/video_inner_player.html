@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>動画再生（デバッグモード）</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    video {
+      width: 100vw;
+      height: 60vh;
+      object-fit: contain;
+      background: black;
+    }
+    #log {
+      height: 40vh;
+      overflow-y: auto;
+      padding: 1rem;
+      background: #111;
+      font-size: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" muted playsinline controls></video>
+  <div id="log">ログ出力:</div>
+
+  <script>
+    const log = (...args) => {
+      const el = document.getElementById("log");
+      const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      el.textContent += "\n" + text;
+      console.log(...args);
+    };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const params = new URLSearchParams(window.location.search);
+      const title = params.get("title");
+      log("手順書タイトル:", title);
+
+      const video = document.getElementById("video");
+
+      try {
+        const res = await fetch(`/get_manual?title=${encodeURIComponent(title)}`);
+        if (!res.ok) throw new Error("get_manual が失敗: " + res.status);
+        const data = await res.json();
+        log("取得したファイル一覧:", data);
+
+        if (!data.files || data.files.length === 0) {
+          throw new Error("動画ファイルが見つかりません");
+        }
+
+        const firstVideo = data.files[0];
+        log("最初の動画URL:", firstVideo);
+
+        video.src = firstVideo;
+        video.preload = "auto";
+        video.load();
+
+        video.addEventListener("loadeddata", () => {
+          log("✅ loadeddata イベント発火 → 再生開始を試みる");
+          video.play().then(() => {
+            log("▶ 再生成功");
+          }).catch(err => {
+            log("❌ play()失敗:", err);
+          });
+        });
+
+        video.addEventListener("error", () => {
+          log("❌ video エラー発生:", video.error);
+        });
+
+      } catch (err) {
+        log("❌ 例外発生:", err);
+      }
+    });
+  </script>
+</body>
+</html>

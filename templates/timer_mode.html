@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>サイクルタイム計測</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      box-sizing: border-box;
+    }
+    .stat {
+      font-size: 1.5rem;
+      margin: 0.5rem;
+      text-align: center;
+    }
+    .container {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      width: 100%;
+      margin-top: 2rem;
+    }
+    .panel {
+      flex: 1;
+      min-width: 300px;
+      max-width: 600px;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    #chart-container {
+      width: 100%;
+    }
+    #summary {
+      display: none;
+    }
+    #alert {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: red;
+      color: white;
+      padding: 2rem 3rem;
+      font-size: 2rem;
+      font-weight: bold;
+      border-radius: 10px;
+      z-index: 1000;
+      box-shadow: 0 0 20px rgba(255,0,0,0.8);
+    }
+    #reset {
+      margin-top: 2rem;
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #backToMenu {
+      margin-top: 1.5rem;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #backToMenu:hover {
+      background: #555;
+    }
+
+  </style>
+</head>
+<body>
+  <h1>サイクルタイム計測モード</h1>
+  <div class="stat" id="status">Cキーで計測モード開始</div>
+  <div id="alert" style="display:none;">
+    ⚠ 異常を検知しました！（Bキーで再開）
+  </div>
+  <div class="stat" id="latest">直近サイクルタイム: -- 秒</div>
+  <div class="stat" id="prev">前回サイクルタイム: -- 秒</div>
+  <div class="container">
+    <div class="panel" id="chart-container">
+      <canvas id="cycleChart"></canvas>
+    </div>
+    <div class="panel" id="summary">
+      <div class="stat" id="stats">平均: -- / 最短: -- / 最長: --</div>
+    </div>
+  </div>
+  <button id="reset">リセット</button>
+  <button id="backToMenu">メニューに戻る</button>
+
+
+  <script>
+    let mode = "idle"; // idle, running, paused
+    let startTime = 0;
+    let lastLapTime = 0;
+    let times = [];
+    let chart;
+    let keyLock = false;
+
+    const statusEl = document.getElementById("status");
+    const latestEl = document.getElementById("latest");
+    const prevEl = document.getElementById("prev");
+    const statsEl = document.getElementById("stats");
+    const summaryEl = document.getElementById("summary");
+    const resetBtn = document.getElementById("reset");
+    const alertEl = document.getElementById("alert");
+
+    const ctx = document.getElementById("cycleChart").getContext("2d");
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'サイクルタイム (秒)',
+          data: [],
+          backgroundColor: '#4bc0c0'
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    function updateUI() {
+      if (mode === "idle") {
+        statusEl.textContent = "Cキーで計測モード開始";
+      } else if (mode === "paused") {
+        statusEl.textContent = "⚠ 計測一時停止中（Bキーで再開）";
+      } else {
+        statusEl.textContent = "計測中... Bキーでラップ記録、Aキーで終了";
+      }
+
+      const len = times.length;
+      latestEl.textContent = len > 0 ? `直近サイクルタイム: ${times[len - 1].toFixed(2)} 秒` : "直近サイクルタイム: -- 秒";
+      prevEl.textContent = len > 1 ? `前回サイクルタイム: ${times[len - 2].toFixed(2)} 秒` : "前回サイクルタイム: -- 秒";
+
+      if (len > 0 && mode === "idle") {
+        const avg = times.reduce((a, b) => a + b, 0) / len;
+        const min = Math.min(...times);
+        const max = Math.max(...times);
+        statsEl.textContent = `平均: ${avg.toFixed(2)} / 最短: ${min.toFixed(2)} / 最長: ${max.toFixed(2)}`;
+      } else {
+        statsEl.textContent = "平均: -- / 最短: -- / 最長: --";
+      }
+    }
+
+    function updateChart() {
+      const len = times.length;
+      chart.data.labels.push(`#${len}`);
+      chart.data.datasets[0].data.push(times[len - 1]);
+      chart.update();
+    }
+
+    resetBtn.onclick = () => {
+      times = [];
+      mode = "idle";
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+      chart.update();
+      summaryEl.style.display = "none";
+      alertEl.style.display = "none";
+      updateUI();
+    };
+
+    window.addEventListener("keydown", (e) => {
+      if (keyLock) return;
+      keyLock = true;
+
+      if (e.code === "Digit1" && mode === "running") {
+        mode = "paused";
+        alertEl.style.display = "block";
+        updateUI();
+      } else if (e.code === "KeyB" && mode === "paused") {
+        mode = "running";
+        lastLapTime = Date.now();
+        alertEl.style.display = "none";
+        updateUI();
+      } else if (e.code === "KeyB" && mode === "running") {
+        const now = Date.now();
+        const lap = (now - lastLapTime) / 1000;
+        times.push(lap);
+        lastLapTime = now;
+        updateUI();
+        updateChart();
+      } else if (e.code === "KeyC") {
+        if (mode === "idle") {
+          mode = "running";
+          startTime = Date.now();
+          lastLapTime = startTime;
+          times = [];
+          chart.data.labels = [];
+          chart.data.datasets[0].data = [];
+          chart.update();
+          summaryEl.style.display = "none";
+          alertEl.style.display = "none";
+          updateUI();
+        } else if (mode === "running" || mode === "paused") {
+          mode = "idle";
+          times = [];
+          chart.data.labels = [];
+          chart.data.datasets[0].data = [];
+          chart.update();
+          summaryEl.style.display = "none";
+          alertEl.style.display = "none";
+          updateUI();
+        }
+      } else if (e.code === "KeyA" && mode === "running") {
+        mode = "idle";
+        summaryEl.style.display = "block";
+        updateUI();
+      }
+    });
+
+    window.addEventListener("keyup", () => {
+      keyLock = false;
+    });
+    
+    document.getElementById("backToMenu").onclick = () => {
+      window.location.href = "/";
+    };
+
+  </script>
+</body>
+</html>

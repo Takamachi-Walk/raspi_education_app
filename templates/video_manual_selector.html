@@ -1,0 +1,100 @@
+<!-- templates/video_manual_selector.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>手順書選択</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      background: black;
+      color: white;
+      font-size: 2rem;
+      text-align: center;
+      margin-top: 10vh;
+      font-family: sans-serif;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+    button {
+      all: unset;
+      cursor: pointer;
+    }
+    .manual-btn, .menu-btn {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #444;
+      color: white;
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+    .manual-btn {
+      margin: 1rem;
+      padding: 1.5rem;
+      width: 700px;
+      font-size: 2.5rem;
+    }
+    .menu-btn {
+      margin: 1rem;
+      padding: 2rem 5rem;
+      font-size: 1.5rem;
+    }
+    .manual-btn:hover, .menu-btn:hover {
+      background: #666;
+    }
+    .btn-wrapper,
+    .btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+    .btn-wrapper {
+      margin-top: 2rem;
+    }
+    .btn-row {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>再生する手順書を選択</h1>
+
+  <div class="btn-wrapper">
+    <div class="manual-list" id="manualList">
+      <p>読み込み中...</p>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="menu-btn" onclick="location.href='/video_menu'">◀ 戻る</button>
+  </div>
+
+  <script>
+    fetch("/manuals")
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById("manualList");
+        list.innerHTML = "";
+        if (data.manuals.length === 0) {
+          list.innerHTML = "<p>登録された手順書がありません。</p>";
+          return;
+        }
+        data.manuals.forEach(manual => {
+          const btn = document.createElement("button");
+          btn.className = "manual-btn";
+          btn.textContent = manual.title;
+          btn.onclick = () => {
+            window.location.href = `/video_container?title=${encodeURIComponent(manual.title)}`;
+          };
+          list.appendChild(btn);
+        });
+      });
+  </script>
+</body>
+</html>
