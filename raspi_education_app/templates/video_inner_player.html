@@ -73,6 +73,8 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
+      window.focus();
+
       const params = new URLSearchParams(window.location.search);
       const title = params.get("title");
       log("手順書タイトル:", title);
@@ -117,6 +119,7 @@
 
     // キーボード操作（A:戻る, C:進む）
     document.addEventListener("keydown", (e) => {
+      log("🔑 キー入力検出:", e.code);
       if (!videoFiles.length || e.repeat) return;
 
       if (e.code === "KeyA") {
