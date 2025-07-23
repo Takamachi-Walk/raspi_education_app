@@ -10,22 +10,26 @@
       background: black;
       color: white;
     }
+
     #frame-wrapper {
       width: 100vw;
       height: 100vh;
       position: relative;
     }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    #reloadBtn {
+
+    #button-wrapper {
       position: absolute;
       top: 1rem;
       left: 1rem;
       z-index: 10;
-      padding: 0.8rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #reloadBtn,
+    #backBtn {
+      padding: 1rem 1.5rem;
       font-size: 1.5rem;
       border: none;
       border-radius: 8px;
@@ -33,14 +37,27 @@
       color: white;
       cursor: pointer;
     }
-    #reloadBtn:hover {
+
+    #reloadBtn:hover,
+    #backBtn:hover {
       background: #444;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      position: relative;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
   <div id="frame-wrapper">
-    <button id="reloadBtn">🔄 再読み込み</button>
+    <div id="button-wrapper">
+      <button id="reloadBtn">🔄 再読み込み</button>
+      <button id="backBtn">⬅ 戻る</button>
+    </div>
     <iframe id="videoFrame" src="/video_inner_player?title={{ title }}"></iframe>
   </div>
 
@@ -48,6 +65,10 @@
     document.getElementById("reloadBtn").onclick = () => {
       const frame = document.getElementById("videoFrame");
       frame.src = frame.src;
+    };
+
+    document.getElementById("backBtn").onclick = () => {
+      window.location.href = "/video_manual_selector";
     };
   </script>
 </body>

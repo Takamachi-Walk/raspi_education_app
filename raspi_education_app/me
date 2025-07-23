@@ -1,5 +1,4 @@
 更新したら都度
-cd /Desktop/raspi_education_app
 git add .
 git commit -m "更新内容の説明"
 git push
