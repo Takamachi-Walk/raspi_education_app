@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}STEPon{% endblock %}</title>
+
+  <!--共通のCSSとGoogle Fonts -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="header-bar">STEPon</div>
+
+  {% block content %}
+  {% endblock %}
+</body>
+</html>

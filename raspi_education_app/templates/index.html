@@ -1,93 +1,47 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>教育メニュー</title>
-  <style>
-    body {
-      background: black;
-      color: white;
-      font-size: 2rem;
-      text-align: center;
-      margin-top: 9vh;
-      font-family: sans-serif;
-    }
-  
-    .btn {
-      display: inline-flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      width: 500px;
-      height: 500px;
-      margin: 2rem;
-      background: #444;
-      border-radius: 20px;
-      cursor: pointer;
-      padding: 1rem;
-      transition: background 0.2s;
-      vertical-align: top;  vertical-align: top;
-    }
-  
-    .btn:hover {
-      background: #666;
-    }
-  
-    .btn span {
-      display: block;
-      line-height: 1.2;
-    }
-  
-    .icon {
-      font-size: 5rem;
-      line-height: 1;
-      margin-bottom: 1rem;
-    }
-  
-    .label {
-      font-size: 2.5rem;
-    }
-  </style>
-  
-  <div>
-    <h1>作業者教育メニュー</h1>
-  
-    <div class="btn" onclick="location.href='/video_menu'">
-      <span class="icon">▶</span>
+{% extends 'base.html' %}
+
+{% block title %}ホーム{% endblock %}
+
+{% block content %}
+  <h1>作業者教育メニュー</h1>
+
+  <div class="btn-wrapper">
+    <button class="btn" onclick="location.href='/video_menu'">
+      <img src="/static/assets/ri_book-fill.svg" alt="logo" class="logo">
       <span class="label">動画手順書</span>
-    </div>
-  
-    <div class="btn" onclick="location.href='/timer'">
-      <span class="icon">⏱</span>
+    </button>
+
+    <button class="btn" onclick="location.href='/timer'">
+      <img src="/static/assets/basil_timer-solid.svg" alt="logo" class="logo">
       <span class="label">サイクルタイム</span>
-    </div>
-  </div>  
-  <div id="gpio-status" style="position: fixed; bottom: 1rem; right: 1rem; background: #222; color: white; padding: 1rem; border-radius: 8px; font-size: 1rem; font-family: sans-serif;">
+    </button>
+  </div>
+
+  <div id="gpio-status" style="position: fixed; bottom: 1rem; right: 1rem; background: #fff; color: #8C3AFF; padding: 1rem; border-radius: 40px; font-size: 1rem; font-family: sans-serif; box-shadow: 0 0px 10px rgba(0, 0, 0, 0.15);">
     GPIO確認：<br>
     IN1: <span id="gpio17" style="font-size: 1.2rem;">●</span>　
     IN2: <span id="gpio27" style="font-size: 1.2rem;">●</span>
   </div>
 
   <script>
-  function updateGPIO() {
-    fetch("/gpio_status")
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById("gpio17").textContent = data.gpio17 ? "●" : "○";
-        document.getElementById("gpio27").textContent = data.gpio27 ? "●" : "○";
-      });
-  }
-  setInterval(updateGPIO, 1000);
-  updateGPIO();
-
-  document.addEventListener("keydown", (e) => {
-    if (e.code === "KeyC") {
-      location.href = "/video";
-    } else if (e.code === "KeyT") {
-      location.href = "/timer";
+    function updateGPIO() {
+      fetch("/gpio_status")
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("gpio17").textContent = data.gpio17 ? "●" : "○";
+          document.getElementById("gpio27").textContent = data.gpio27 ? "●" : "○";
+        });
     }
-  });
+
+    setInterval(updateGPIO, 1000);
+    updateGPIO();
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "KeyC") {
+        location.href = "/video";
+      } else if (e.code === "KeyT") {
+        location.href = "/timer";
+      }
+    });
   </script>
-</body>
-</html>
-<!-- もっと凝りたくね -->
+{% endblock %}
