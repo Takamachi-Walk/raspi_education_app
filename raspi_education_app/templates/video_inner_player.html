@@ -14,12 +14,12 @@
     }
     video {
       width: 100vw;
-      height: 100vh;
+      height: 60vh;
       object-fit: contain;
       background: black;
     }
     #log {
-      height: 4cqmax;
+      height: 40vh;
       overflow-y: auto;
       padding: 1rem;
       background: #111;
@@ -44,22 +44,12 @@
   <div id="log">ログ出力:</div>
 
   <script>
-    const DEBUG = false;  // true にすればログ表示復活
-
     const log = (...args) => {
-      if (!DEBUG) return;
-
       const el = document.getElementById("log");
       const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
-      
-      if (el) {
-        el.textContent += "\n" + text;
-        el.scrollTop = el.scrollHeight;
-      }
-
-      console.log(...args); // コンソール出力は常にOK（不要ならこれもDEBUGで囲ってOK）
+      el.textContent += "\n" + text;
+      console.log(...args);
     };
-
 
     let videoFiles = [];
     let currentIndex = 0;
@@ -84,7 +74,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       window.focus();
-      
+
       const params = new URLSearchParams(window.location.search);
       const title = params.get("title");
       log("手順書タイトル:", title);
@@ -129,6 +119,7 @@
 
     // キーボード操作（A:戻る, C:進む）
     document.addEventListener("keydown", (e) => {
+      log("🔑 キー入力検出:", e.code);
       if (!videoFiles.length || e.repeat) return;
 
       if (e.code === "KeyA") {
@@ -136,6 +127,11 @@
         log("⬅️ 前ステップへ:", prev);
         switchVideo(prev);
       } else if (e.code === "KeyC") {
+        const next = (currentIndex + 1) % videoFiles.length;
+        log("➡️ 次ステップへ:", next);
+        switchVideo(next);
+      }
+        else if (e.code === "KeyC") {
         const next = (currentIndex + 1) % videoFiles.length;
         log("➡️ 次ステップへ:", next);
         switchVideo(next);
