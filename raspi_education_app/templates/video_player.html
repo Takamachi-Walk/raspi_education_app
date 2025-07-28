@@ -1,55 +1,11 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>動画手順書モード</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      height: 100%;
-      overflow: hidden;
-    }
-    #video-container {
-      width: 100vw;
-      height: 100vh;
-      display: none;
-    }
-    video {
-      width: 100vw;
-      height: 100vh;
-      object-fit: contain;
-      background: black;
-    }
-    #loading {
-      color: white;
-      text-align: center;
-      margin-top: 30vh;
-      font-size: 1.5rem;
-    }
-    #selectBtn {
-      position: absolute;
-      left: 1rem;
-      background: #222;
-      color: white;
-      border: none;
-      padding: 1rem;
-      border-radius: 8px;
-      font-size: 2.5rem;
-      z-index: 10;
-      cursor: pointer;
-      top: 1rem;
-    }
-    #selectBtn:hover {
-      background: #444;
-    }
-  </style>
-</head>
-<body>
-  <button id="selectBtn" onclick="location.href='/video_manual_selector'">📖 手順書を再選択</button>
+{% extends 'base.html' %}
+
+{% block title %}動画手順書モード{% endblock %}
+
+{% block content %}
+  <button class="btn-small" onclick="location.href='/video_manual_selector'">📖 手順書を再選択</button>
   <div id="loading">動画を読み込み中です...</div>
-  <div id="video-container">
+  <div class="btn-small">
     <video id="video" muted playsinline></video>
   </div>
 
@@ -147,5 +103,4 @@
       });
     });
   </script>
-</body>
-</html>
+{% endblock %}

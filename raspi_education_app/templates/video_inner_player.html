@@ -2,52 +2,18 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>動画再生（デバッグモード）</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      overflow: hidden;
-    }
-    video {
-      width: 100vw;
-      height: 60vh;
-      object-fit: contain;
-      background: black;
-    }
-    #log {
-      height: 40vh;
-      overflow-y: auto;
-      padding: 1rem;
-      background: #111;
-      font-size: 1rem;
-      white-space: pre-wrap;
-    }
-    #step {
-      position: absolute;
-      top: 0.5rem;
-      right: 1rem;
-      background: #333;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      border-radius: 8px;
-      z-index: 10;
-    }
-  </style>
+  <title>動画手順書モード</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body style="margin: 0; overflow: hidden;">
   <video id="video" muted playsinline></video>
-  <div id="step">STEP --</div>
-  <div id="log">ログ出力:</div>
+  <!--<div id="step">STEP --</div>-->
 
   <script>
     const log = (...args) => {
       const el = document.getElementById("log");
       const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
-      el.textContent += "\n" + text;
+      if (el) el.textContent += "\n" + text;
       console.log(...args);
     };
 
@@ -105,7 +71,6 @@
           log("❌ video エラー発生:", video.error);
         });
 
-        // 動画ループ：手動方式（play()が確実）
         video.addEventListener("ended", () => {
           log("🔁 動画終了 → ループ再生");
           video.currentTime = 0;
@@ -117,7 +82,6 @@
       }
     });
 
-    // キーボード操作（A:戻る, C:進む）
     document.addEventListener("keydown", (e) => {
       log("🔑 キー入力検出:", e.code);
       if (!videoFiles.length || e.repeat) return;
@@ -131,14 +95,8 @@
         log("➡️ 次ステップへ:", next);
         switchVideo(next);
       }
-        else if (e.code === "KeyC") {
-        const next = (currentIndex + 1) % videoFiles.length;
-        log("➡️ 次ステップへ:", next);
-        switchVideo(next);
-      }
     });
 
-    // GPIO連携（5回/秒チェック）
     setInterval(async () => {
       try {
         const res = await fetch("/gpio_status");
