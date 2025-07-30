@@ -1,147 +1,71 @@
-<!-- templates/manual_list.html -->
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>登録手順書一覧</title>
-  <style>
-    body {
-      text-align: center;
-      font-family: sans-serif;
-      background: #111;
-      color: white;
-      padding: 2rem;
-    }
-    h1 {
-      text-align: center;
-    }
-    .manual-list {
-      max-width: 600px;
-      margin: 2rem auto;
-    }
-    .manual-item {
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .manual-item:hover {
-      background: #333;
-    }
-    .manual-title {
-      cursor: pointer;
-    }
-    .delete-btn {
-      background: none;
-      border: none;
-      color: red;
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-    .back-btn {
-      margin-top: 3rem;
-      background: #222;
-      border: none;
-      padding: 1rem 2rem;
-      font-size: 1rem;
-      color: white;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-    .back-btn:hover {
-      background: #444;
-    }
+{% extends 'base.html' %}
 
-  </style>
-</head>
-<body>
-  
+{% block title %}登録手順書一覧{% endblock %}
+
+{% block content %}
   <h1>登録手順書一覧</h1>
-  <div class="manual-list" id="manualList">
-    <p>読み込み中...</p>
+
+  <div class="btn-wrapper">
+    <div class="manual-list" id="manualList">
+      <p>読み込み中...</p>
+    </div>
   </div>
-  <button class="back-btn" onclick="location.href='/video_menu'">◀ メニューに戻る</button>
+
+  <div class="btn-row">
+    <button class="btn btn-back" onclick="location.href='/video_menu'">
+      <span class="label">◀ メニューに戻る</span>
+    </button>
+  </div>
+
   <script>
     function loadManuals() {
-    fetch("/manuals")
-      .then(res => res.json())
-      .then(data => {
-        const list = document.getElementById("manualList");
-        list.innerHTML = "";
-        if (data.manuals.length === 0) {
-          list.innerHTML = "<p>登録された手順書がありません。</p>";
-          return;
-        }
-        data.manuals.forEach(manual => {
-          const div = document.createElement("div");
-          div.className = "manual-item";
+      fetch("/manuals")
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById("manualList");
+          list.innerHTML = "";
+          if (data.manuals.length === 0) {
+            list.innerHTML = "<p>登録された手順書がありません。</p>";
+            return;
+          }
+          data.manuals.forEach(manual => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "manual-entry";
 
-          const span = document.createElement("span");
-          span.className = "manual-title";
-          span.textContent = manual.title;
-          span.onclick = () => {
-            window.location.href = `/edit_manual?title=${encodeURIComponent(manual.title)}`;
-          };
+            const btn = document.createElement("button");
+            btn.className = "btn btn-manual";
 
-          const del = document.createElement("button");
-          del.className = "delete-btn";
-          del.textContent = "×";
-          del.onclick = (e) => {
-            e.stopPropagation();
-            if (confirm(`「${manual.title}」を削除しますか？`)) {
-              const form = new FormData();
-              form.append("title", manual.title);
-              fetch("/delete_manual", {
-                method: "POST",
-                body: form
-              }).then(() => loadManuals());
-            }
-          };
+            const span = document.createElement("span");
+            span.className = "label";
+            span.textContent = manual.title;
 
-          div.appendChild(span);
-          div.appendChild(del);
-          list.appendChild(div);
+            btn.appendChild(span);
+            btn.onclick = () => {
+              window.location.href = `/edit_manual?title=${encodeURIComponent(manual.title)}`;
+            };
+
+            const del = document.createElement("button");
+            del.className = "delete-btn";
+            del.textContent = "×";
+            del.onclick = (e) => {
+              e.stopPropagation();
+              if (confirm(`「${manual.title}」を削除しますか？`)) {
+                const form = new FormData();
+                form.append("title", manual.title);
+                fetch("/delete_manual", {
+                  method: "POST",
+                  body: form
+                }).then(() => loadManuals());
+              }
+            };
+
+            wrapper.appendChild(btn);
+            wrapper.appendChild(del);
+            list.appendChild(wrapper);
+          });
         });
-      });
-  }
-  loadManuals();
+    }
+
+    loadManuals();
   </script>
-</body>
-</html>
-
-<!-- ↓ 編集保存用 submitUpdate 関数（edit_manual.html に挿入用） -->
-<script>
-  async function submitUpdate() {
-    const form = new FormData();
-
-    for (let i = 0; i < steps.length; i++) {
-      const file = steps[i];
-      if (!file) continue;
-
-      if (typeof file === "string") {
-        const res = await fetch(file);
-        const blob = await res.blob();
-        form.append("videos", blob, `${i + 1}.mp4`);
-      } else {
-        form.append("videos", file, `${i + 1}.mp4`);
-      }
-    }
-
-    const res = await fetch(`/update_manual?title=${encodeURIComponent(title)}`, {
-      method: "POST",
-      body: form
-    });
-
-    if (res.ok) {
-      alert("更新しました");
-      window.location.href = "/manual_list";
-    } else {
-      const msg = await res.text();
-      alert("更新に失敗しました\n" + msg);
-    }
-  }
-</script>
+{% endblock %}

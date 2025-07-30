@@ -1,98 +1,178 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>動画手順書モード</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>動画プレイヤー</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    .video-player {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+    }
+    #step-num {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      font-size: 2rem;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+    #status-message {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 1.5rem;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+    #log {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      font-size: 1rem;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 0.4rem 0.8rem;
+      border-radius: 0.5rem;
+      max-width: 90%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
 </head>
-<body style="margin: 0; overflow: hidden;">
-  <video id="video" muted playsinline></video>
-  <!--<div id="step">STEP --</div>-->
+<body>
+  <div id="step-num"></div>
+  <div id="status-message">準備中...</div>
+  <div id="video-container"></div>
+  <div id="log"></div>
 
   <script>
-    const log = (...args) => {
-      const el = document.getElementById("log");
-      const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
-      if (el) el.textContent += "\n" + text;
-      console.log(...args);
-    };
+    const params = new URLSearchParams(window.location.search);
+    const title = params.get("title");
+    const videoContainer = document.getElementById("video-container");
+    const stepNum = document.getElementById("step-num");
+    const statusMessage = document.getElementById("status-message");
+    const logArea = document.getElementById("log");
 
     let videoFiles = [];
+    let videoElements = [];
     let currentIndex = 0;
-    const video = document.getElementById("video");
-    const stepDisplay = document.getElementById("step");
+    let readyToPlay = false;
+    let allVideosLoaded = false;
 
-    function updateStepDisplay() {
-      stepDisplay.textContent = `STEP ${currentIndex + 1} / ${videoFiles.length}`;
-    }
+    const log = (...args) => {
+      const msg = args.join(" ");
+      console.log(msg);
+      logArea.textContent = msg; // ← 最新メッセージだけ表示
+    };
 
-    function switchVideo(index) {
-      if (!videoFiles[index]) {
-        log("❗ 指定インデックスが存在しない:", index);
-        return;
-      }
+    const updateStepDisplay = () => {
+      stepNum.textContent = `Step ${currentIndex + 1} / ${videoFiles.length}`;
+    };
+
+    const switchVideo = (index) => {
       currentIndex = index;
-      video.src = videoFiles[currentIndex];
-      video.preload = "auto";
-      video.load();
+      const newVideo = videoElements[index];
+
+      const oldVideo = document.getElementById("video");
+      if (oldVideo) {
+        videoContainer.removeChild(oldVideo);
+      }
+
+      newVideo.id = "video";
+      newVideo.classList.add("video-player");
+      newVideo.autoplay = true;
+      newVideo.controls = false;
+      newVideo.loop = true;
+      newVideo.currentTime = 0;
+
+      videoContainer.appendChild(newVideo);
+      newVideo.play().then(() => {
+        log("▶ 再生成功");
+      }).catch(err => {
+        log("❌ play()失敗:", err);
+      });
+
       updateStepDisplay();
-    }
+    };
 
     document.addEventListener("DOMContentLoaded", async () => {
-      window.focus();
-
-      const params = new URLSearchParams(window.location.search);
-      const title = params.get("title");
-      log("手順書タイトル:", title);
+      statusMessage.textContent = "準備中...";
 
       try {
         const res = await fetch(`/get_manual?title=${encodeURIComponent(title)}`);
-        if (!res.ok) throw new Error("get_manual が失敗: " + res.status);
         const data = await res.json();
-        log("取得したファイル一覧:", data);
-
-        if (!data.files || data.files.length === 0) {
-          throw new Error("動画ファイルが見つかりません");
+        if (!data.files || !data.files.length) {
+          log("動画が見つかりません");
+          statusMessage.textContent = "動画が見つかりません";
+          return;
         }
 
         videoFiles = data.files;
-        switchVideo(0);
+        videoElements = videoFiles.map((src, i) => {
+          const v = document.createElement("video");
+          v.src = src;
+          v.preload = "auto";
+          v.muted = true;
+          v.playsInline = true;
+          return v;
+        });
 
-        video.addEventListener("loadeddata", () => {
-          log("✅ loadeddata → 再生開始を試みる");
-          video.play().then(() => {
-            log("▶ 再生成功");
-          }).catch(err => {
-            log("❌ play()失敗:", err);
+        await Promise.allSettled(videoElements.map((v, i) => {
+          return new Promise(resolve => {
+            const timeout = setTimeout(() => {
+              log(`⚠️ 動画 ${i + 1} タイムアウト`);
+              resolve();
+            }, 5000);
+
+            v.oncanplaythrough = () => {
+              clearTimeout(timeout);
+              log(`📥 動画 ${i + 1} 読み込み完了`);
+              resolve();
+            };
           });
-        });
+        }));
 
-        video.addEventListener("error", () => {
-          log("❌ video エラー発生:", video.error);
-        });
-
-        video.addEventListener("ended", () => {
-          log("🔁 動画終了 → ループ再生");
-          video.currentTime = 0;
-          video.play().catch(err => log("ループ再生失敗:", err));
-        });
-
+        allVideosLoaded = true;
+        log("✅ 全部読み込み完了");
+        statusMessage.textContent = "Bキーで再生できます";
       } catch (err) {
-        log("❌ 例外発生:", err);
+        log("❌ エラー発生:", err);
+        statusMessage.textContent = "エラーが発生しました";
       }
+
+      window.focus();
     });
 
     document.addEventListener("keydown", (e) => {
-      log("🔑 キー入力検出:", e.code);
-      if (!videoFiles.length || e.repeat) return;
+      log("🔑 キー:", e.code);
+      if (e.repeat) return;
+
+      if (e.code === "KeyB") {
+        if (allVideosLoaded && !readyToPlay) {
+          readyToPlay = true;
+          switchVideo(0);
+        }
+        return;
+      }
+
+      if (!readyToPlay || !videoFiles.length) return;
 
       if (e.code === "KeyA") {
         const prev = (currentIndex - 1 + videoFiles.length) % videoFiles.length;
-        log("⬅️ 前ステップへ:", prev);
         switchVideo(prev);
       } else if (e.code === "KeyC") {
         const next = (currentIndex + 1) % videoFiles.length;
-        log("➡️ 次ステップへ:", next);
         switchVideo(next);
       }
     });
@@ -101,17 +181,16 @@
       try {
         const res = await fetch("/gpio_status");
         const data = await res.json();
+        if (!readyToPlay) return;
         if (data.gpio17 === 1) {
           const next = (currentIndex + 1) % videoFiles.length;
-          log("🟢 GPIO17 → 次へ:", next);
           switchVideo(next);
         } else if (data.gpio27 === 1) {
           const prev = (currentIndex - 1 + videoFiles.length) % videoFiles.length;
-          log("🟡 GPIO27 → 前へ:", prev);
           switchVideo(prev);
         }
       } catch (err) {
-        log("GPIO取得失敗:", err);
+        log("GPIO fetch error:", err);
       }
     }, 200);
   </script>

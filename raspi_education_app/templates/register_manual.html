@@ -3,29 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <title>動画手順書 登録</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
-    body {
-      color: #333;
-      background: #f5f5f5;
-      margin: 0;
-      font-size: 2rem;
-      text-align: center;
-      overflow: hidden;
-    }
     .header-bar {
       width: 100%;
       height: 40px;
-      background: linear-gradient(to right, #a042ff, #22aaff); /* 紫青グラデ */
+      background: linear-gradient(to right, #a042ff, #22aaff);
       color: white;
       font-family: 'Poppins';
       font-size: 1.2rem;
       padding: 0 2rem;
       display: flex;
       align-items: center;
-    }
-    h1 {
-      font-size: 1.2rem;
-      text-align: center;
     }
     .steps {
       display: flex;
@@ -38,13 +27,12 @@
       white-space: nowrap;
       scroll-behavior: smooth;
     }
-
     .step {
       flex: 0 0 auto;
       width: 150px;
       height: 100px;
-      background: #333;
-      border: 2px dashed #888;
+      background: #ffffff;
+      border-radius: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -54,23 +42,25 @@
       text-align: center;
       cursor: pointer;
     }
-
-    .step video {
-      max-width: 100%;
-      max-height: 60px;
+    .step-thumbnail {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
     }
     .step-label {
       font-size: 0.9rem;
       position: absolute;
-      top: -1.5rem;
+      top: -1.3rem;
       left: 50%;
       transform: translateX(-50%);
-      color: white;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
     }
-    .step-delete-btn {
+    .step-delete-btn, .video-delete-btn {
       position: absolute;
       top: 2px;
-      left: 4px;
+      left: 10px;
       background: none;
       color: red;
       border: none;
@@ -81,51 +71,29 @@
       z-index: 10;
     }
     .video-delete-btn {
-      position: absolute;
-      top: 2px;
-      right: 4px;
-      background: none;
-      color: white;
-      border: none;
+      color: rgb(255, 0, 0);
       font-size: 1.2rem;
-      cursor: pointer;
-      padding: 0;
-      z-index: 10;
-    }
-    .arrow {
-      position: absolute;
-      font-size: 2rem;
-      color: #aaa;
-      top: 50%;
-      transform: translateY(-50%);
-      right: -1.5rem;
+      left: 6px;
     }
     #manualName {
       margin-top: 1rem;
       padding: 0.5rem;
       width: 300px;
     }
-    .button-wrapper{
-
+    .manual-control {
+      position: absolute;
+      top: 2rem;
+      left: 48%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 80rem;
+      margin: 2rem;
     }
-    button {
-      background: #222;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      z-index: 1000;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #444;
-    }
-    .previewPlayer{
+    .previewPlayer {
       display: block;
       margin: 2rem auto;
-      height: 400px;
-      width: 640px;
+      height: 603px;
+      width: 1072px;
       background: #fff;
     }
   </style>
@@ -133,18 +101,19 @@
 <body>
   <div class="header-bar">STEPon</div>
 
-  <h1>"ここに手順書名"</h1>
+  <input id="manualTitle" type="text" placeholder="手順書名を入力">
 
-  <video class="previewPlayer"></video>
+  <video id="previewPlayer" class="previewPlayer" controls></video>
 
   <div class="steps" id="steps"></div>
 
-  <input id="manualName" type="text" placeholder="手順書名を入力">
-  <button onclick="submitManual()">名前を付けて登録</button>
-
-  <form id="uploadForm" style="display:none" enctype="multipart/form-data"></form>
-  <div id="botton-wrapper">
-    <button id="backBtn" onclick="location.href='/video_menu'">戻る</button>
+  <div class="manual-control">
+    <button class="btn btn-back" onclick="location.href='/video_menu'">
+      <span class="label">戻る</span>
+    </button>
+    <button class="btn btn-register" onclick="submitManual()">
+      <span class="label">登録</span>
+    </button>
   </div>
 
   <script>
@@ -155,70 +124,102 @@
       renderSteps();
     }
 
-    function selectVideo(index) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'video/mp4';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        steps[index] = file;
-        renderSteps();
-      };
-      input.click();
+    function playPreview(file) {
+      const preview = document.getElementById('previewPlayer');
+      preview.src = URL.createObjectURL(file);
+      preview.load();
+      preview.play();
     }
 
     function renderSteps() {
       const container = document.getElementById("steps");
       container.innerHTML = "";
       steps.forEach((file, i) => {
-        const stepEl = document.createElement("div");
-        stepEl.className = "step";
-
-        const label = document.createElement("div");
-        label.className = "step-label";
-        label.textContent = `ステップ${i + 1}`;
-        stepEl.appendChild(label);
-
-        if (file) {
-          const video = document.createElement("video");
-          video.src = URL.createObjectURL(file);
-          video.controls = true;
-          stepEl.appendChild(video);
-
-          const delVideoBtn = document.createElement("button");
-          delVideoBtn.textContent = "×";
-          delVideoBtn.className = "video-delete-btn";
-          delVideoBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            steps[i] = null;
-            renderSteps();
-          };
-          stepEl.appendChild(delVideoBtn);
-        } else {
-          const delStepBtn = document.createElement("button");
-          delStepBtn.textContent = "×";
-          delStepBtn.className = "step-delete-btn";
-          delStepBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            steps.splice(i, 1);
-            renderSteps();
-          };
-          stepEl.appendChild(delStepBtn);
-        }
-
-        stepEl.onclick = () => selectVideo(i);
-        container.appendChild(stepEl);
-
-        if (i > 0) {
-          const arrow = document.createElement("div");
-          arrow.className = "arrow";
-          arrow.innerHTML = "→";
-          container.appendChild(arrow);
-        }
+        container.appendChild(buildStepElement(file, i));
       });
+      container.appendChild(buildAddButton());
+    }
+
+    function selectVideo(index) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'video/mp4';
+      input.style.display = 'none';
+
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        steps[index] = file;
+        renderSteps();
+        document.body.removeChild(input);
+      });
+
+      document.body.appendChild(input);
+      input.click();
+    }
+
+    function buildStepElement(file, i) {
+      const stepEl = document.createElement("div");
+      stepEl.className = "step";
+
+      const label = document.createElement("div");
+      label.className = "step-label";
+      label.textContent = `ステップ${i + 1}`;
+      label.style.color = "#333";
+      stepEl.appendChild(label);
+
+      if (file) {
+        const thumbnail = document.createElement("img");
+        thumbnail.className = "step-thumbnail";
+
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        video.preload = "metadata";
+        video.muted = true;
+
+        video.onloadedmetadata = () => video.currentTime = 1;
+        video.onseeked = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          thumbnail.src = canvas.toDataURL("image/png");
+        };
+
+        stepEl.appendChild(thumbnail);
+        stepEl.onclick = () => playPreview(file);
+
+        const delVideoBtn = document.createElement("button");
+        delVideoBtn.textContent = "×";
+        delVideoBtn.className = "video-delete-btn";
+        delVideoBtn.onclick = (ev) => {
+          ev.stopPropagation();
+          steps[i] = null;
+          renderSteps();
+        };
+        stepEl.appendChild(delVideoBtn);
+      } else {
+        stepEl.onclick = () => selectVideo(i);
+
+        const delStepBtn = document.createElement("button");
+        delStepBtn.textContent = "×";
+        delStepBtn.className = "step-delete-btn";
+        delStepBtn.onclick = (ev) => {
+          ev.stopPropagation();
+          steps.splice(i, 1);
+          renderSteps();
+        };
+        stepEl.appendChild(delStepBtn);
+      }
+
+      return stepEl;
+    }
+
+    function buildAddButton() {
       const addStepEl = document.createElement("div");
       addStepEl.className = "step";
+      addStepEl.id = "addStepBtn";
       addStepEl.style.background = "#fff";
       addStepEl.style.border = "2px dashed #aaa";
       addStepEl.style.color = "#555";
@@ -226,12 +227,18 @@
       addStepEl.style.fontWeight = "bold";
       addStepEl.textContent = "+";
       addStepEl.onclick = addStep;
-      container.appendChild(addStepEl);
+      return addStepEl;
     }
 
+    window.onload = () => {
+      steps = [];
+      renderSteps();  // 空の状態からスタート
+    };
+
     async function submitManual() {
-      const name = document.getElementById('manualName').value.trim();
+      const name = document.getElementById('manualTitle').value.trim();
       if (!name) return alert("手順書名を入力してください。");
+
       const validSteps = steps.filter(s => s);
       if (validSteps.length === 0) return alert("動画が1つも登録されていません。");
 
@@ -248,14 +255,12 @@
 
       if (res.ok) {
         alert("手順書を登録しました");
-        window.location.href = "/";
+        window.location.href = "/video_menu";
       } else {
         const msg = await res.text();
         alert("登録に失敗しました\n" + msg);
       }
     }
-
-    window.onload = () => renderSteps();
   </script>
 </body>
 </html>

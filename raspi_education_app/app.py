@@ -29,50 +29,47 @@ os.makedirs(os.path.dirname(INDEX_FILE), exist_ok=True)
 
 # --- 日本語フォルダ名用の安全変換関数 ---
 def sanitize_foldername(name):
-    invalid = '\\/:*?"<>|'
+    invalid = '\\/:*?\"<>|'
     for c in invalid:
         name = name.replace(c, '-')
     return name.strip() or "manual"
 
 # --- 動画手順書登録 ---
-@app.route("/register_manual", methods=["GET", "POST"])
+@app.route("/register_manual", methods=["POST"])
 def register_manual():
-    if request.method == "GET":
-        return render_template("register_manual.html")
+    title = request.form.get("title", "").strip()
+    if not title:
+        return "タイトルがありません", 400
+
+    folder = sanitize_foldername(title)
+    manual_path = os.path.join(MANUAL_DIR, folder)
+    os.makedirs(manual_path, exist_ok=True)
+
+    files = request.files.getlist("videos")
+    for i, file in enumerate(files):
+        file.save(os.path.join(manual_path, f"{i + 1}.mp4"))
+
+    if os.path.exists(INDEX_FILE):
+        with open(INDEX_FILE, "r", encoding="utf-8") as f:
+            index = json.load(f)
     else:
-        print("=== DEBUG: request.form ===", request.form)
-        print("=== DEBUG: request.files ===", request.files)
+        index = []
 
-        title = request.form.get("title", "").strip()
-        if not title:
-            return "手順書名が空です", 400
+    index = [m for m in index if m["title"] != title]
+    index.append({
+        "title": title,
+        "path": f"manuals/{folder}"
+    })
 
-        folder_name = sanitize_foldername(title)
-        if not folder_name:
-            return "無効な手順書名です", 400
+    with open(INDEX_FILE, "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
 
-        manual_path = os.path.join(MANUAL_DIR, folder_name)
-        os.makedirs(manual_path, exist_ok=True)
+    return "OK"
 
-        files = request.files.getlist("videos")
-        if not files:
-            return "動画ファイルがありません", 400
+@app.route("/register_manual")
+def register_manual_page():
+    return render_template("register_manual.html")
 
-        for i, f in enumerate(files):
-            f.save(os.path.join(manual_path, f"{i+1}.mp4"))
-
-        manuals = []
-        if os.path.exists(INDEX_FILE):
-            with open(INDEX_FILE, "r", encoding="utf-8") as f:
-                manuals = json.load(f)
-        manuals = [m for m in manuals if m["title"] != title]
-        manuals.append({ "title": title, "path": f"manuals/{folder_name}" })
-        with open(INDEX_FILE, "w", encoding="utf-8") as f:
-            json.dump(manuals, f, ensure_ascii=False, indent=2)
-
-        return ("", 204)
-
-# --- GPIO状態返却 ---
 @app.route("/gpio_status")
 def gpio_status():
     return jsonify({
@@ -80,7 +77,6 @@ def gpio_status():
         "gpio27": GPIO.input(27) if GPIO_AVAILABLE else 0
     })
 
-# --- 各種ルート ---
 @app.route("/")
 def menu():
     return render_template("index.html")
@@ -118,21 +114,29 @@ def timer_mode():
 @app.route("/manual_list")
 def manual_list():
     return render_template("manual_list.html")
-    
+
 @app.route("/edit_manual")
 def edit_manual():
     return render_template("edit_manual.html")
-    
+
 @app.route("/get_manual")
 def get_manual():
     title = request.args.get("title", "")
     folder_name = sanitize_foldername(title)
     manual_path = os.path.join(MANUAL_DIR, folder_name)
+
     if not os.path.exists(manual_path):
-        return "指定された手順書が見つかりません", 404
+        old_title = request.args.get("oldTitle", "")
+        old_folder = sanitize_foldername(old_title)
+        old_path = os.path.join(MANUAL_DIR, old_folder)
+        if os.path.exists(old_path):
+            folder_name = old_folder
+            manual_path = old_path
+        else:
+            return "指定された手順書が見つかりません", 404
 
     files = []
-    for i in range(1, 100):  # 最大100ステップまでチェック（必要に応じて拡張）
+    for i in range(1, 100):
         file_path = os.path.join(manual_path, f"{i}.mp4")
         if os.path.exists(file_path):
             files.append(f"/static/manuals/{folder_name}/{i}.mp4")
@@ -143,71 +147,90 @@ def get_manual():
 
 @app.route("/update_manual", methods=["POST"])
 def update_manual():
-    title = request.args.get("title", "")
-    folder_name = sanitize_foldername(title)
+    title = request.form.get("title", "").strip()
+    old_title = request.form.get("oldTitle", "").strip()
+
+    if not title or not old_title:
+        return "title or oldTitle missing", 400
+
+    folder_name = sanitize_foldername(old_title)
     manual_path = os.path.join(MANUAL_DIR, folder_name)
 
     if not os.path.exists(manual_path):
         return "手順書が存在しません", 404
 
-    # 既存 .mp4 削除
-    for f in os.listdir(manual_path):
-        if f.endswith(".mp4"):
-            os.remove(os.path.join(manual_path, f))
+    new_folder = sanitize_foldername(title)
+    new_path = os.path.join(MANUAL_DIR, new_folder)
 
-    # アップロードされたファイルを 1.mp4, 2.mp4, ... に保存し直す
-    i = 1
-    for f in request.files.getlist("videos"):
-        f.save(os.path.join(manual_path, f"{i}.mp4"))
-        i += 1
+    if folder_name != new_folder:
+        if os.path.exists(new_path):
+            return "同名の手順書が既に存在します", 400
+        os.rename(manual_path, new_path)
+        manual_path = new_path
 
-    return "", 204
+    for i in range(1, 100):
+        file_path = os.path.join(manual_path, f"{i}.mp4")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        else:
+            break
 
+    files = request.files.getlist("videos")
+    os.makedirs(manual_path, exist_ok=True)
+    for i, file in enumerate(files):
+        file.save(os.path.join(manual_path, f"{i + 1}.mp4"))
+
+    if os.path.exists(INDEX_FILE):
+        with open(INDEX_FILE, "r", encoding="utf-8") as f:
+            index = json.load(f)
+    else:
+        index = []
+
+    index = [m for m in index if m["title"] != old_title]
+    index.append({
+        "title": title,
+        "path": f"manuals/{new_folder}"
+    })
+
+    with open(INDEX_FILE, "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
+
+    return "OK"
 
 @app.route("/manuals")
 def get_manuals():
-    if os.path.exists(INDEX_FILE):
-        with open(INDEX_FILE, "r", encoding="utf-8") as f:
-            manuals = json.load(f)
-        # 実在するフォルダのみ返す（正確なパスで確認）
-        filtered = []
-        for m in manuals:
-            folder = os.path.join(app.root_path, "static", m["path"])
-            if os.path.isdir(folder):
-                filtered.append(m)
-        return jsonify({"manuals": filtered})
-    else:
-        return jsonify({"manuals": []})
-    
+    if not os.path.exists(INDEX_FILE):
+        return jsonify({ "manuals": [] })
+
+    with open(INDEX_FILE, "r", encoding="utf-8") as f:
+        manuals = json.load(f)
+
+    return jsonify({ "manuals": manuals })
+
 @app.route("/delete_manual", methods=["POST"])
 def delete_manual():
     title = request.form.get("title", "")
     folder_name = None
 
-    # manual_index.json から path を取得
     if os.path.exists(INDEX_FILE):
         with open(INDEX_FILE, "r", encoding="utf-8") as f:
             manuals = json.load(f)
-        # 該当手順書を検索
+
         for m in manuals:
             if m["title"] == title:
-                folder_name = m["path"]  # 例: manuals/見本
+                folder_name = m["path"]
                 break
 
-        # path が見つかれば削除
         if folder_name:
             folder_path = os.path.join(app.root_path, "static", folder_name)
             if os.path.exists(folder_path):
                 shutil.rmtree(folder_path)
 
-        # manual_index.json からも削除
         manuals = [m for m in manuals if m["title"] != title]
         with open(INDEX_FILE, "w", encoding="utf-8") as f:
             json.dump(manuals, f, ensure_ascii=False, indent=2)
 
     return "", 204
-
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
