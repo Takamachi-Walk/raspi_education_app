@@ -107,6 +107,7 @@
       resetState();
 
       try {
+        const ts = Date.now();
         const res = await fetch(`/get_manual?title=${encodeURIComponent(title)}`);
         const data = await res.json();
 
@@ -119,7 +120,7 @@
         videoFiles = data.files;
         videoElements = videoFiles.map((src, i) => {
           const v = document.createElement("video");
-          v.src = src;
+          v.src = src + "?v=" + Date.now();
           v.preload = "auto";
           v.muted = true;
           v.playsInline = true;
