@@ -154,6 +154,18 @@
       window.focus();
     });
 
+    function resetState() {
+      videoContainer.innerHTML = "";
+      stepNum.textContent = "";
+      statusMessage.textContent = "準備中...";
+      logArea.textContent = "";
+      videoFiles = [];
+      videoElements = [];
+      currentIndex = 0;
+      readyToPlay = false;
+      allVideosLoaded = false;
+    }
+    
     document.addEventListener("keydown", (e) => {
       log("🔑 キー:", e.code);
       if (e.repeat) return;
