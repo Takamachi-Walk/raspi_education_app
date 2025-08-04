@@ -17,36 +17,22 @@
       height: 100vh;
       object-fit: contain;
     }
-    #step-num {
+    #step-num, #status-message, #log {
       position: absolute;
-      top: 1rem;
-      left: 1rem;
-      font-size: 2rem;
-      background: rgba(0, 0, 0, 0.5);
       padding: 0.5rem 1rem;
       border-radius: 0.5rem;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    #step-num {
+      top: 1rem; left: 1rem; font-size: 2rem;
     }
     #status-message {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      font-size: 1.5rem;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
+      top: 1rem; right: 1rem; font-size: 1.5rem;
     }
     #log {
-      position: absolute;
-      bottom: 1rem;
-      left: 1rem;
-      font-size: 1rem;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 0.4rem 0.8rem;
-      border-radius: 0.5rem;
-      max-width: 90%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      bottom: 1rem; left: 1rem; font-size: 1rem;
+      max-width: 90%; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
   </style>
 </head>
@@ -58,7 +44,8 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const title = params.get("title");
+    const title = params.get("title") || "";
+
     const videoContainer = document.getElementById("video-container");
     const stepNum = document.getElementById("step-num");
     const statusMessage = document.getElementById("status-message");
@@ -73,8 +60,20 @@
     const log = (...args) => {
       const msg = args.join(" ");
       console.log(msg);
-      logArea.textContent = msg; // ← 最新メッセージだけ表示
+      logArea.textContent = msg;
     };
+
+    function resetState() {
+      videoContainer.innerHTML = "";
+      stepNum.textContent = "";
+      statusMessage.textContent = "準備中...";
+      logArea.textContent = "";
+      videoFiles = [];
+      videoElements = [];
+      currentIndex = 0;
+      readyToPlay = false;
+      allVideosLoaded = false;
+    }
 
     const updateStepDisplay = () => {
       stepNum.textContent = `Step ${currentIndex + 1} / ${videoFiles.length}`;
@@ -85,9 +84,7 @@
       const newVideo = videoElements[index];
 
       const oldVideo = document.getElementById("video");
-      if (oldVideo) {
-        videoContainer.removeChild(oldVideo);
-      }
+      if (oldVideo) videoContainer.removeChild(oldVideo);
 
       newVideo.id = "video";
       newVideo.classList.add("video-player");
@@ -107,11 +104,12 @@
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
-      statusMessage.textContent = "準備中...";
+      resetState();
 
       try {
         const res = await fetch(`/get_manual?title=${encodeURIComponent(title)}`);
         const data = await res.json();
+
         if (!data.files || !data.files.length) {
           log("動画が見つかりません");
           statusMessage.textContent = "動画が見つかりません";
@@ -154,18 +152,6 @@
       window.focus();
     });
 
-    function resetState() {
-      videoContainer.innerHTML = "";
-      stepNum.textContent = "";
-      statusMessage.textContent = "準備中...";
-      logArea.textContent = "";
-      videoFiles = [];
-      videoElements = [];
-      currentIndex = 0;
-      readyToPlay = false;
-      allVideosLoaded = false;
-    }
-    
     document.addEventListener("keydown", (e) => {
       log("🔑 キー:", e.code);
       if (e.repeat) return;
